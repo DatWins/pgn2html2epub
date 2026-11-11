@@ -1,0 +1,223 @@
+[Event "The Master Game"]
+[Site "BBC Television"]
+[Date "????.??.??"]
+[Round "1.1"]
+[White "O'Kelly de Galway, Alberik"]
+[Black "Miles, Anthony John"]
+[Result "0-1"]
+[ECO "E15"]
+[Opening "Queen's Indian Defence"]
+[Annotator "Jeremy James, William Hartston (The Master Game)"]
+
+{ Queen's Indian Defence. A game which was made to look really one-sided
+  by Miles’s powerful attacking play, but the Belgian grandmaster played
+  far too passively throughout. }
+
+1. c4         b6
+2. d4         e6
+{ O’KELLY: So he’s trying to play a Nimzo-Indian without the move Nf6.
+  What shall I do? Well, the normal move is e4 but I expect that he must
+  have found an improvement on the game that he lost a few days ago
+  against Browne in Tilburg, so let’s play simply, Nf3. }
+3. Nf3
+{ MILES: Oh, we’re going to transpose into a boring Queen’s Indian. Still,
+  nothing can be done about it. I must move Nf6. }
+    ( 3. e4 )
+3... Nf6
+{ O’KELLY: Perhaps I should consider playing Bf4, that’s my opponent’s
+  speciality. He won a good game against Spassky in the wine tournament in
+  Montilla, but I prefer to play simply. Let’s go to the Queen’s Indian
+  with g3. }
+4. g3
+{ MILES: Now there are many possibilities. Bb7 is normal – let me see – he
+  writes a lot about the game and probably knows most about what’s
+  currently fashionable. That’s Bb7 and Be7 so I’ll play something
+  different. I’ll attack c4. }
+    ( 4. Bf4 )
+4... Ba6
+{ O’KELLY: So you’re attacking my pawn; I have to protect it. There are
+  several possibilities. I can protect with Qa4 or Qc2, but I’ll play
+  simply: b3. }
+    ( 4... Bb7 )
+    ( 4... Be7 )
+5. b3
+{ MILES: Yes, now White wants to develop his bishop to b2, so I’ll give
+  him an annoying little check on b4 and try to deflect him. }
+    ( 5. Qa4 )
+    ( 5. Qc2 )
+5... Bb4+
+{ O’KELLY: I just remember a game won by Smyslov with Black against
+  Uhlmann when 6.Nbd2 was played. It’s probably safer to interpose the
+  bishop. }
+6. Bd2
+{ MILES: That’s good. Now I don’t want to exchange on d2 because that
+  would only develop another white piece, so I play my bishop back to e7
+  and hope that his bishop is misplaced. }
+    ( 6. Nbd2 )
+6... Be7
+{ O’KELLY: My bishop is not so nice on d2, but I won’t move it again at
+  this stage. Let’s develop simply. }
+7. Bg2
+{ MILES: Now Bb7 is possible, d5 is possible, c6 is an interesting move;
+  play d5 later and if necessary recapture with the c-pawn. I quite like
+  it. }
+7... c6
+{ O’KELLY: Interesting idea. My Q-side is a little bit weak so it’s not so
+  easy to develop the Q-Knight because he might jump in on the weak
+  squares with a bishop. Let’s castle. }
+    ( 7... Bb7 )
+    ( 7... d5 )
+8. O-O
+{ MILES: Now my idea’s to play d5, but I also need to castle. Which move
+  do I play first? I don’t think it makes any difference. I’ll play d5. }
+8... d5
+{ O’KELLY: He’s threatening my pawn again. Well, let’s ignore the threat
+  for one move. }
+9. Nc3
+{ MILES: Now if I take on c4, 9...dxc4 10.bxc4, he recaptures and after
+  Bxc4 he has Ne5. That attacks my bishop and my pawn on c6 and I can’t
+  play Bd5 because of e4, so I’d have to move the bishop back and then
+  Nxc6 and I lose material. So I can’t take on c4 for the moment, but if I
+  castle first then I think I’m really threatening him. }
+9... O-O
+{ O’KELLY: Now I must do something about the c-pawn. It’s not pleasant to
+  take in the centre but I’ve probably no option. I remember a game that I
+  won with Black against the late Ossip Bernstein about twenty-five years
+  ago. He also took in the centre, but here I’ve no option. }
+    ( 9... dxc4
+      10. bxc4      Bxc4
+      11. Ne5       Bd5
+      12. e4 )
+10. cxd5
+{ MILES: That’s nice. I expected Ne5 but I would have played Nfd7 with a
+  fairly easy position. Now White releases the tension – I’m sure Black
+  has a very easy position – probably a little better already. Now I like
+  cxd5, that’s my style. I think the American Grandmaster Lombardy claimed
+  that exd5 was good for Black but I don’t believe that. }
+    ( 10. Ne5       Nfd7 )
+10... cxd5
+{ With both Black bishops more aggressively placed than White’s, the
+  central pawn exchange has left him with the easier game. The next few
+  moves saw O’Kelly adopting defensive measures against Ne4 and Ba3. }
+    ( 10... exd5 )
+11. Qb1       Nc6
+12. a3        Rc8
+13. Rc1
+{ MILES: Now a plan, my kingdom for a plan. Maybe Nd7 and Bf6, but I don’t
+  know. On Nd7 maybe he can play e4. I can’t give him so much time yet.
+  That’s annoying, but he hasn’t got any sensible moves either. Possibly
+  another idea for me is Bd6 and Qe7, then I have some pressure against
+  the Q-side. I don’t know; against Bd6 he might still be able to play e4,
+  then maybe he’ll have Ng5 attacking h7. I need a good waiting move,
+  maybe Re8. The rook will be useful there later on; it may allow me to
+  regroup. }
+13... Re8
+{ O’KELLY: What are you up to? Seems to be waiting for a mistake. It’s not
+  easy, my bishop is out of play, the d-pawn needs protection from the
+  knight. I have two possibilities here: either Bf1 or e3. If I play e3 it
+  locks in the bishop on d2. What shall I do? Let’s play e3 and have a
+  look at what will happen later. }
+    ( 13... Nd7
+      14. e4 )
+    ( 13... Bd6
+      14. e4 )
+14. e3
+{ MILES: Now that I like. Both his bishops are now fairly bad. Can I play
+  Bd6? I don’t know, maybe he can still play e4 and if I take twice he’ll
+  recapture with the queen (15...dxe4 16.Nxe4 Nxe4 17.Qxe4); my knight on
+  c6 is loose and he may still have Ng5. I think I need another waiting
+  move. Maybe just h6 so that I won’t have the worry of Ng5 at the end.
+  He’s still not doing anything. He’s having terrible trouble finding
+  moves and he’s taking a long time over it. Another waiting move is good. }
+    ( 14. Bf1 )
+14... h6
+{ O’KELLY: He just waits. What shall I do? Probably the safest way is Bf1,
+  proposing an exchange, but it’s very passive because he might enter on
+  the white squares later. It’s not easy to find a move. I might even play
+  Ne5 – it’s no good, he would take it off and his knight would attack my
+  pawn. Let’s wait and see. }
+    ( 14... Bd6
+      15. e4        dxe4
+      16. Nxe4      Nxe4
+      17. Qxe4 )
+15. Qb2
+{ MILES: That’s nice, there’s no longer control over e4. I can even think
+  of putting my knight there (Ne4), but I like my old plan, Bd6 and Qe7
+  looks nice. I don’t have to worry about e4 any more and I get nice
+  pressure against the Q-side. }
+    ( 15. Bf1 )
+    ( 15. Ne5 )
+15... Bd6
+{ O’KELLY: That’s unpleasant, he’s threatening e5. I should have thought
+  about that before. My two bishops are bad. Maybe I could play a
+  counter-attack on the Q-side. That’s the general strategy against a
+  central thrust. Let’s try it. }
+    ( 15... Ne4 )
+16. b4
+{ Strange logic by O’Kelly; the normal recommendation is for action in the
+  centre to counter a wing attack. This move puts his last pawn on a black
+  square. The threat of b5 is easily countered and White is left with
+  disastrous weaknesses on the light squares. }
+16... Bd3
+17. Ne1       Bc4
+18. Bf1       Bxf1
+19. Kxf1      e5!
+{ Exchange of bishops has left the white squares defenceless. Miles opens
+  the game for the decisive attack. O’Kelly’s men, in their draughts board
+  posture, are in no position to offer much resistance.
+  O’KELLY: Very strong move. He might enter on the e-file. If I take, the
+  knight takes back and enters on the white squares. It’s very bad,
+  probably already lost. Well, let’s try Nb5. }
+20. Nb5
+{ MILES: Now I could probably play e4 and then build up on the K-side.
+  That’s probably strong but I’d like to open the position a bit because
+  his pieces are all stuck on the Q-side. }
+20... exd4
+{ O’KELLY: If I play Nxd6, Qxd6 then b5, he takes on e3 (22...dxe3). The
+  king’s too exposed. I must take back. }
+    ( 20... e4 )
+21. Nxd4
+{ MILES: Right, I take on d4 and he can’t take with the queen (22.Qxd4)
+  because of Be5. }
+    ( 21. Nxd6      Qxd6
+      22. b5        dxe3 )
+21... Nxd4
+22. exd4
+{ MILES: Now in such positions my queen belongs on a white square and
+  there’s only one for it. That’s d7, it’s very strong. }
+    ( 22. Qxd4      Be5 )
+22... Qd7
+{ O’KELLY: Let’s exchange one of the rooks. }
+23. Rxc8
+{ MILES: Now Rxc8 is normal but I want the rook on the e-file. If the
+  queen takes on c8 I threaten Qh3 and Re2. This is very strong, he must
+  let one of my pieces in. }
+23... Qxc8
+{ O’KELLY: There’s probably no defence. He threatens Qh3+ with a winning
+  attack. Well, let’s play Kg2. }
+24. Kg2
+{ MILES: That stops Qh3+, but Re2 looks very strong. Then I pin his bishop
+  and pawn. My knight’s going to e4 and the queen’s coming to f5. That
+  must be winning. }
+24... Re2
+{ O’KELLY: Very unpleasant. Many threats here, the main one being Ne4. The
+  position is lost. }
+25. Nf3
+{ MILES: Now Ne4 looks very strong, but wait, Ng4 is much better. Then the
+  only way to protect the f2 pawn is Rf1, when I have Ne3+. His pawn’s
+  pinned against his king, and the bishop against the queen. So he can’t
+  take it and I win the exchange. No, more! He must play Kg1 and then I
+  have Qh3 and that’s mate next move on g2 or f1. Check once more: Ng4 and
+  if he tries Rc1, I have Qf5. That doesn’t help. }
+25... Ng4
+{ O’KELLY: I overlooked that. I cannot play Rf1 to protect the f-pawn
+  because of Ne3+. There’s nothing to be done. }
+    ( 25... Ne4 )
+    ( 25... Ng4
+      26. Rf1       Ne3+
+      27. Kg1       Qh3 )
+    ( 25... Ng4
+      26. Rc1       Qf5 )
+
+{ O'KELLY RESIGNS. }
+0-1
