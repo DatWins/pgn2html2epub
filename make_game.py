@@ -553,6 +553,20 @@ def main():
     if len(sys.argv) < 2:
         sys.exit("Usage:  py make_game.py path\\to\\game.pgn")
     src = Path(sys.argv[1])
+    if not src.is_file():
+        print(f"Can't find the file '{src}'.")
+        found = list((KIT / "games").glob("*.pgn")) + list(KIT.glob("*.pgn"))
+        if found:
+            print("PGN files I can see:")
+            for name in sorted((KIT / "games").glob("*.pgn")):
+                print(f"   games\\{name.name}")
+            for name in sorted(KIT.glob("*.pgn")):
+                print(f"   {name.name}")
+            print("Type one of those names after  py make_game.py")
+        else:
+            print("There are no .pgn files in the games folder yet. Save your PGN there first,")
+            print("then run e.g.:  py make_game.py games\\your-file-name.pgn")
+        sys.exit(1)
     try:
         text = src.read_text(encoding="utf-8-sig")
     except UnicodeDecodeError:                       # saved by Notepad as "ANSI"

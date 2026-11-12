@@ -29,7 +29,8 @@ That's all. No Node, no browser tools needed.
 ## Making a game
 
 1. Write your PGN and save it in the `games` folder, for example
-   `games\my-game.pgn`. See **[PGN_GUIDE.md](PGN_GUIDE.md)** for how to write it.
+   `games\my-game.pgn` (`my-game` is just an example: use your own file's name
+   everywhere below). Type `dir games` to see the names of the files there. See **[PGN_GUIDE.md](PGN_GUIDE.md)** for how to write it.
 2. Open the kit folder in File Explorer, click the address bar, type `cmd`
    and press Enter. A Command Prompt opens in the right folder.
 3. Run:
