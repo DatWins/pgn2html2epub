@@ -5,6 +5,8 @@ make_game.py  -  turn one tidy PGN into
 
 Usage (Windows, in the kit folder):
     py make_game.py games\\my-game.pgn
+    py make_game.py games\\my-game.pgn --stockfish          (adds Stockfish mistake diagrams)
+    py make_game.py games\\my-game.pgn --stockfish "C:\\path\\to\\stockfish.exe" --depth 18
 
 Needs:  py -m pip install chess pillow
 See README.md for setup and PGN_GUIDE.md for how to write the PGN.
@@ -14,6 +16,7 @@ import html
 import io
 import json
 import re
+import shutil
 import sys
 import uuid
 import zipfile
@@ -59,6 +62,20 @@ def read_games(text):
     return games
 
 
+def join_wrapped(text):
+    """Notepad-style wrapped lines become one paragraph again; deliberate breaks stay:
+    blank lines, short lines, lines ending with ':' and list lines (1. / - / *)."""
+    out = []
+    for para in text.split("\n\n"):
+        lines = para.split("\n")
+        joined = lines[0]
+        for prev, line in zip(lines, lines[1:]):
+            keep = len(prev) < 50 or prev.endswith(":") or re.match(r"(\d+[.)]|[-*•])\s", line)
+            joined += ("\n" if keep else " ") + line
+        out.append(joined)
+    return "\n\n".join(out)
+
+
 def tokenize(movetext):
     toks, i = [], 0
     while i < len(movetext):
@@ -71,6 +88,7 @@ def tokenize(movetext):
             body = re.sub(r"[ \t\r]+", " ", body)
             body = re.sub(r" ?\n ?", "\n", body).strip()            # keep line breaks the author typed
             body = re.sub(r"\n{3,}", "\n\n", body)
+            body = join_wrapped(body)
             if body:
                 toks.append(("c", body))
             i = j + 1
@@ -227,6 +245,91 @@ def build_line(tree, root, toks):
     return line(root), errors
 
 
+# --------------------------------------------------------------------------- Stockfish (optional)
+STOCKFISH_PLACES = [r"C:\stockfish\stockfish-windows-x86-64-universal.exe", r"C:\stockfish\stockfish.exe",
+                    r"C:\stockfish\stockfish-windows-x86-64-avx2.exe", r"C:\stockfish\stockfish-windows-x86-64.exe"]
+
+
+def find_stockfish(given):
+    if given:
+        return given if Path(given).is_file() else None
+    for p in STOCKFISH_PLACES:
+        if Path(p).is_file():
+            return p
+    for folder in (Path(r"C:\stockfish"), KIT / "stockfish"):
+        if folder.is_dir():
+            exes = sorted(folder.rglob("stockfish*.exe")) or sorted(folder.rglob("stockfish*"))
+            exes = [e for e in exes if e.is_file()]
+            if exes:
+                return str(exes[0])
+    return shutil.which("stockfish")
+
+
+def show_eval(pov):
+    s = pov.white()
+    if s.is_mate():
+        m = s.mate()
+        return f"#{m}" if m > 0 else f"-#{-m}"
+    return f"{s.score() / 100:+.1f}"
+
+
+def stockfish_mistakes(tree, main, engine_path, depth=18, threshold=100):
+    """Run Stockfish along every main line. A move is marked when it loses about a pawn
+    (threshold, in centipawns) or more, unless the player is still clearly winning after it."""
+    import chess.engine
+    paths, path = [], []
+    for kind, val in main + [("h", None)]:           # the main line of each game, as written in the PGN
+        if kind == "h":
+            if path:
+                paths.append([tree.nodes[path[0]]["parent"]] + path)
+            path = []
+        elif kind == "m":
+            path.append(val)
+    total = sum(len(p) for p in paths)
+    done, ev, flags = 0, {}, {}
+    engine = chess.engine.SimpleEngine.popen_uci(engine_path)
+    try:
+        for path in paths:
+            for nid in path:
+                if nid not in ev:
+                    board = chess.Board(tree.nodes[nid]["fen"])
+                    info = engine.analyse(board, chess.engine.Limit(depth=depth))
+                    pv = info.get("pv") or []
+                    ev[nid] = (info["score"], info["score"].white().score(mate_score=10000), pv[0] if pv else None)
+                done += 1
+                print(f"\r  Stockfish (depth {depth}): {done}/{total} positions", end="", flush=True)
+            for prev, nid in zip(path, path[1:]):
+                node = tree.nodes[nid]
+                before_pov, before, best = ev[prev]
+                after_pov, after, _ = ev[nid]
+                white = node["white"]
+                loss = (before - after) if white else (after - before)
+                still_winning = (after if white else -after) >= 300
+                if best is None or loss < threshold or still_winning:
+                    continue
+                board = chess.Board(tree.nodes[prev]["fen"])
+                if chess.square_name(best.from_square) == node["from"] and chess.square_name(best.to_square) == node["to"]:
+                    continue
+                number = board.fullmove_number
+                flags[nid] = {
+                    "fen": tree.nodes[prev]["fen"],
+                    "best": f"{number}{'.' if white else '...'}{board.san(best)}",
+                    "best_sq": (best.from_square, best.to_square),
+                    "played_sq": (chess.parse_square(node["from"]), chess.parse_square(node["to"])),
+                    "before": show_eval(before_pov), "after": show_eval(after_pov),
+                }
+    finally:
+        engine.quit()
+        print()
+    return flags
+
+
+def mistake_svg(info, size=360):
+    import chess.svg
+    arrows = [chess.svg.Arrow(*info["best_sq"], color="green"), chess.svg.Arrow(*info["played_sq"], color="red")]
+    return chess.svg.board(chess.Board(info["fen"]), arrows=arrows, size=size)
+
+
 # --------------------------------------------------------------------------- names and titles
 def person(tag):
     """'Miles, Anthony John' -> 'Anthony John Miles'"""
@@ -254,6 +357,7 @@ class Writer:
         self.t, self.main, self.tags, self.mode, self.n_games = tree, main, tags, mode, n_games
         self.out, self.toc, self.diagrams = [], [("top", "Introduction" if n_games == 1 else "Overview")], []
         self.speakers = {}
+        self.sf_images = []
         self.has_speakers = bool(SPEAKER_SPLIT.search(" ".join(v for k, v in _walk(main) if k == "c")))
 
     # moves -----------------------------------------------------------------
@@ -398,6 +502,20 @@ class Writer:
             if kind == "m":
                 flush_lines()
                 run.append(val)
+                info = getattr(self.t, "sf", {}).get(val)
+                if info:
+                    flush_run()
+                    played = self.t.text(val)
+                    cap = (f'<span class="sfg">Stockfish: {esc(info["best"])}</span> was better ({esc(info["before"])}). '
+                           f'<span class="sfr">After {esc(played)}</span>: {esc(info["after"])}.')
+                    if self.mode == "epub":
+                        self.sf_images.append(val)
+                        out.append(f'<div class="dia sf"><img src="images/sf_{val}.svg" alt="Stockfish diagram before {esc(played)}"/>'
+                                   f'<p class="cap">{cap}</p></div>')
+                    else:
+                        out.append(f'<figure class="dia sfcard" data-id="{self.t.nodes[val]["parent"]}">'
+                                   f'<div class="sfsvg">{mistake_svg(info)}</div><figcaption>{cap}</figcaption></figure>')
+                continue
             elif kind == "c":
                 flush_run()
                 flush_lines()
@@ -475,7 +593,19 @@ def make_html(tree, main, tags, slug, n_games=1):
     page = (ASSETS / "template.html").read_text(encoding="utf-8")
     page = page.replace("%%TITLE%%", esc(full_title)).replace("%%TOC%%", toc)
     page = page.replace("<!--BODY-->", body).replace("/*NODES*/", data)
+    if getattr(tree, "sf", None):
+        page = page.replace("</head>", SF_CSS + "</head>", 1)
     return page
+
+
+SF_CSS = """<style>
+figure.sfcard{width:auto;max-width:400px}
+.sfsvg svg{display:block;width:100%;max-width:360px;height:auto}
+figure.sfcard figcaption{font-size:.8em;font-weight:500;color:var(--ink,#222);line-height:1.45}
+.sfg{color:#1b7a2e;font-weight:700}.sfr{color:#b00020;font-weight:700}
+:root[data-theme="dark"] .sfg{color:#6fd08a}:root[data-theme="dark"] .sfr{color:#ff7b8a}
+</style>
+"""
 
 
 # --------------------------------------------------------------------------- board pictures
@@ -609,6 +739,8 @@ p.result{font-weight:bold;font-size:1.2em;text-align:center}
 .dia{text-align:center;margin:1em 0;page-break-inside:avoid}
 .dia img{width:85%;max-width:430px}
 .cap{font-family:sans-serif;font-size:.85em;font-weight:bold;color:#1f4fa3;text-align:center;margin:.2em 0 0}
+.dia.sf .cap{color:#222;font-weight:normal}
+.sfg{color:#1b7a2e;font-weight:bold}.sfr{color:#b00020;font-weight:bold}
 """
 
 
@@ -661,8 +793,10 @@ def make_epub(tree, main, tags, slug, out_path, n_games=1):
     creator = " and ".join(x for x in (person(tags.get("White")), person(tags.get("Black"))) if x) if n_games == 1 else ""
     if not creator and nice(tags.get("Annotator")):
         creator = tags["Annotator"].rstrip("/").rsplit("/", 1)[-1]
+    for nid in w.sf_images:
+        images[f"sf_{nid}.svg"] = ('<?xml version="1.0" encoding="utf-8"?>\n' + mistake_svg(tree.sf[nid], 430)).encode("utf-8")
     manifest = "\n".join(
-        f'<item id="img_{Path(x).stem}" href="images/{x}" media-type="image/png"'
+        f'<item id="img_{Path(x).stem}" href="images/{x}" media-type="{"image/svg+xml" if x.endswith(".svg") else "image/png"}"'
         f'{" properties=\"cover-image\"" if x == "cover.png" else ""}/>' for x in sorted(images))
     manifest += "\n" + "\n".join(f'<item id="c{i}" href="{f}" media-type="application/xhtml+xml"/>'
                                  for i, (f, _, _) in enumerate(chapters))
@@ -702,14 +836,30 @@ def make_epub(tree, main, tags, slug, out_path, n_games=1):
             put(f"OEBPS/{f}", xhtml(t, inner))
         for name, data in images.items():
             put(f"OEBPS/images/{name}", data)
-    return len(w.diagrams)
+    return len(w.diagrams) + len(w.sf_images)
 
 
 # --------------------------------------------------------------------------- main
 def main():
-    if len(sys.argv) < 2:
-        sys.exit("Usage:  py make_game.py path\\to\\game.pgn")
-    src = Path(sys.argv[1])
+    args, use_sf, sf_path, depth = [], False, None, 18
+    argv = sys.argv[1:]
+    i = 0
+    while i < len(argv):
+        a = argv[i]
+        if a == "--stockfish":
+            use_sf = True
+            if i + 1 < len(argv) and not argv[i + 1].startswith("--") and not argv[i + 1].lower().endswith(".pgn"):
+                sf_path = argv[i + 1]
+                i += 1
+        elif a == "--depth" and i + 1 < len(argv):
+            depth = int(argv[i + 1])
+            i += 1
+        else:
+            args.append(a)
+        i += 1
+    if not args:
+        sys.exit("Usage:  py make_game.py path\\to\\game.pgn   [--stockfish [path\\to\\stockfish.exe]] [--depth 18]")
+    src = Path(args[0])
     if not src.is_file():
         print(f"Can't find the file '{src}'.")
         found = list((KIT / "games").glob("*.pgn")) + list(KIT.glob("*.pgn"))
@@ -743,6 +893,16 @@ def main():
         if len(errors) > 1:
             print(f"  ({len(errors) - 1} more problem(s) after it, often caused by the first one)")
         sys.exit(1)
+    tree.sf = {}
+    if use_sf:
+        engine_path = find_stockfish(sf_path)
+        if not engine_path:
+            print("Can't find Stockfish." + (f" Nothing at '{sf_path}'." if sf_path else ""))
+            print('Tell the kit where it is, e.g.:  py make_game.py games\\my_game.pgn --stockfish "C:\\stockfish\\stockfish.exe"')
+            sys.exit(1)
+        print(f"Running Stockfish ({engine_path}) - this takes a few minutes for a long game...")
+        tree.sf = stockfish_mistakes(tree, mainline, engine_path, depth)
+        print(f"  {len(tree.sf)} mistake(s) marked with a diagram.")
     slug = re.sub(r"[^a-z0-9_]+", "-", src.stem.lower()).strip("-") or "game"
     out = KIT / "out"
     out.mkdir(exist_ok=True)

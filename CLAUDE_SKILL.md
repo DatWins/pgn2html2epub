@@ -45,6 +45,19 @@ were added to O'Kelly – Miles without saying so, and the user noticed.
   clickable start diagram for FEN chapters, title from StudyName/Title,
   "Overview" for the header section, emojis stripped in the EPUB only.
 
+## Optional Stockfish mode (`--stockfish [path] [--depth 18]`)
+- Analyses each game's written main line (one engine call per position).
+  A move is marked when it loses ≥100 cp for the mover and the mover isn't
+  still ≥+3 after it, and Stockfish's best move differs.
+- Marked moves get a python-chess `chess.svg.board` of the position before
+  the move, green arrow = best, red = played, caption
+  "Stockfish: X was better (eval). After Y: eval." Inline SVG on the page
+  (clickable, loads the position); separate .svg images in the EPUB.
+- The user likes this board style (from their analyze_game.py chat).
+- Default engine search: C:\stockfish\*.exe, then PATH.
+- Comment line breaks: wrapped lines are re-joined; blank lines, short
+  lines, lines ending ':' and list lines keep their break.
+
 ## Web page design (assets/template.html — keep it)
 - Sticky top bar: title, A− / A+, Dark (saved in localStorage, try/catch),
   Hide board (phones).

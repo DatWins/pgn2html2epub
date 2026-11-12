@@ -56,6 +56,28 @@ chapter becomes a section of one page and one EPUB.
 The file name of the PGN becomes the name of the outputs
 (`my-game.pgn` → `my-game.html`, `my-game.epub`).
 
+### Optional: Stockfish mistake diagrams
+
+Add `--stockfish` to have Stockfish check the main line:
+
+```
+py make_game.py games\my-game.pgn --stockfish
+```
+
+After every move that loses about a pawn or more, the page and the EPUB get
+a board (the python-chess board) with a **green arrow** for Stockfish's best
+move and a **red arrow** for the move played, plus a line like
+*Stockfish: 24.Nf3 was better (-0.7). After 24.Kg2: -4.4.* (+ is good for
+White, − for Black). Click the board on the web page to load that position.
+
+* The kit looks for Stockfish in `C:\stockfish\`. If yours is somewhere else:
+  `py make_game.py games\my-game.pgn --stockfish "C:\path\to\stockfish.exe"`
+* It checks every position at depth 18, so a 40-move game takes a few
+  minutes. `--depth 14` is faster, `--depth 22` is more accurate.
+* Moves played when that side is still clearly winning (+3 or more) aren't
+  marked. Side lines aren't checked, only the main line.
+* Without `--stockfish` nothing changes and Stockfish isn't needed.
+
 ### If it says "Stopped - fix this move"
 
 Every move, including every side line, is played on a real board. If one is
