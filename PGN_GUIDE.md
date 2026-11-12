@@ -116,6 +116,28 @@ Put it just before the move where the section should start. Without any
 Finish with the result (`1-0`, `0-1`, `1/2-1/2` or `*`). A comment just
 before it, like `{ O'KELLY RESIGNS. }`, is shown before the result.
 
+## 8. Several games in one file (Lichess studies, collections)
+
+A file can hold more than one game, one after another, each starting with
+its own `[Tag]` lines. A Lichess study downloaded with *Share & export →
+Study PGN* is exactly that: one game per chapter. The kit then makes
+**one page and one EPUB for the whole file**:
+
+* Each game or chapter becomes its own section, with a heading and a link in
+  **Contents** (a chapter in the EPUB). The heading is the `ChapterName` tag
+  for a Lichess study, otherwise `White – Black, Event Year`.
+* Chapters that start from a set-up position (`[FEN "..."]` with moves like
+  `2... Nc6`) get a starting diagram; click it to load it on the live board.
+* The big title is the `StudyName` tag (or add your own `[Title "..."]` to
+  the first game).
+* Lichess arrows and circles (`[%cal ...]`, `[%csl ...]`) aren't drawn; they're
+  removed from the text.
+* Emojis in chapter names show on the web page but are left out of the
+  EPUB, because Kobo can't display them.
+
+If you'd rather have one page per game, split the file into separate PGN
+files and run the kit on each.
+
 ## Checklist before running
 
 * Every `{` has a matching `}` and every `(` a matching `)`.

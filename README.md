@@ -50,6 +50,9 @@ That's all. No Node, no browser tools needed.
    Double-click the `.html` to open it in your browser. Copy the `.epub`
    to your Kobo.
 
+A whole Lichess study (*Share & export → Study PGN*) works too: every
+chapter becomes a section of one page and one EPUB.
+
 The file name of the PGN becomes the name of the outputs
 (`my-game.pgn` → `my-game.html`, `my-game.epub`).
 

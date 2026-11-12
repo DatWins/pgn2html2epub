@@ -40,9 +40,26 @@ SPEAKER_START = re.compile(rf"^({SPEAKER}):\s*(.*)$", re.S)
 
 
 # --------------------------------------------------------------------------- reading the PGN
-def read_pgn(text):
-    tags = dict(re.findall(r'^\[(\w+)\s+"(.*)"\]\s*$', text, re.M))
-    movetext = re.sub(r"^\[.*\]\s*$", "", text, flags=re.M)
+def read_games(text):
+    """Split a PGN file into games (a Lichess study export = one game per chapter)."""
+    games, tags, body, in_moves = [], {}, [], False
+    for line in text.splitlines():
+        m = re.match(r'^\s*\[(\w+)\s+"(.*)"\]\s*$', line)
+        if m and (in_moves or not body or not "".join(body).strip()):
+            if in_moves:                                  # a new tag block starts the next game
+                games.append((tags, tokenize("\n".join(body))))
+                tags, body, in_moves = {}, [], False
+            tags[m.group(1)] = m.group(2)
+        else:
+            body.append(line)
+            if line.strip():
+                in_moves = True
+    if tags or "".join(body).strip():
+        games.append((tags, tokenize("\n".join(body))))
+    return games
+
+
+def tokenize(movetext):
     toks, i = [], 0
     while i < len(movetext):
         c = movetext[i]
@@ -51,7 +68,9 @@ def read_pgn(text):
         elif c == "{":
             j = movetext.index("}", i)
             body = re.sub(r"\[%[^\]]*\]", "", movetext[i + 1:j])   # drop Lichess [%clk ..] [%cal ..] codes
-            body = re.sub(r"\s+", " ", body).strip()
+            body = re.sub(r"[ \t\r]+", " ", body)
+            body = re.sub(r" ?\n ?", "\n", body).strip()            # keep line breaks the author typed
+            body = re.sub(r"\n{3,}", "\n\n", body)
             if body:
                 toks.append(("c", body))
             i = j + 1
@@ -63,6 +82,9 @@ def read_pgn(text):
         elif c in "()":
             toks.append((c, None))
             i += 1
+        elif movetext.startswith("--", i) or movetext.startswith("Z0", i):   # null move: not supported
+            toks.append(("m", ("--", "")))
+            i += 2
         else:
             word = re.match(r"[^\s(){};]+", movetext[i:]).group(0)
             i += len(word)
@@ -77,15 +99,20 @@ def read_pgn(text):
             word = re.sub(r"^\d+\.+", "", word)          # "12.Nf3" / "12...Nf3"
             m = re.fullmatch(r"(.*?)([!?]*)", word)
             toks.append(("m", (m.group(1), m.group(2))))
-    return tags, toks
+    return toks
 
 
 class Tree:
     """Every position in the game and its side lines. Node 'n0' is the start position."""
 
-    def __init__(self, start_fen):
+    def __init__(self):
         self.nodes = {}
-        self.root = self._add(start_fen, None, None, "")
+        self.root = None
+
+    def add_root(self, fen):
+        nid = self._add(fen, None, None, "")
+        self.root = self.root or nid
+        return nid
 
     def _add(self, fen, parent, move_info, ann):
         nid = f"n{len(self.nodes)}"
@@ -125,9 +152,47 @@ class Tree:
         return n["san"] + n["ann"]
 
 
-def build_tree(tags, toks):
-    start = tags.get("FEN") if tags.get("SetUp", "1") == "1" and tags.get("FEN") else chess.STARTING_FEN
-    tree = Tree(start)
+def start_fen(tags):
+    fen = tags.get("FEN")
+    if fen and tags.get("SetUp", "1") == "1":
+        try:
+            return chess.Board(fen).fen()
+        except ValueError:
+            pass
+    return chess.STARTING_FEN
+
+
+def chapter_name(tags, k):
+    for key in ("ChapterName",):
+        if nice(tags.get(key)):
+            return tags[key]
+    ev, study = nice(tags.get("Event")), nice(tags.get("StudyName"))
+    if study and ev.startswith(study + ":"):
+        return ev[len(study) + 1:].strip()
+    if nice(tags.get("White")) and nice(tags.get("Black")):
+        yr = nice(tags.get("Date"))[:4].strip("?.")
+        return f"{surname(tags['White'])} – {surname(tags['Black'])}" + (f", {ev}" if ev else "") + (f" {yr}" if yr else "")
+    return ev or f"Game {k}"
+
+
+def build(games):
+    """One move tree for all games. Returns the tree, one list of page elements, and errors."""
+    tree, errors, stream = Tree(), [], []
+    multi = len(games) > 1
+    for k, (tags, toks) in enumerate(games, 1):
+        root = tree.add_root(start_fen(tags))
+        name = chapter_name(tags, k)
+        els, errs = build_line(tree, root, toks)
+        errors += [f"{e}  [in '{name}']" if multi else e for e in errs]
+        if multi:
+            stream.append(("h", (name, root, tags)))
+            if tree.nodes[root]["fen"] != chess.STARTING_FEN and any(e[0] == "m" for e in els):
+                stream.append(("start", root))
+        stream += els
+    return tree, stream, errors
+
+
+def build_line(tree, root, toks):
     errors = []
     pos = [0]
 
@@ -159,8 +224,7 @@ def build_tree(tags, toks):
                 els.append(("m", nid))
         return els
 
-    main = line(tree.root)
-    return tree, main, errors
+    return line(root), errors
 
 
 # --------------------------------------------------------------------------- names and titles
@@ -186,9 +250,9 @@ def nice(v):
 
 # --------------------------------------------------------------------------- page text
 class Writer:
-    def __init__(self, tree, main, tags, mode):
-        self.t, self.main, self.tags, self.mode = tree, main, tags, mode
-        self.out, self.toc, self.diagrams = [], [("top", "Introduction")], []
+    def __init__(self, tree, main, tags, mode, n_games=1):
+        self.t, self.main, self.tags, self.mode, self.n_games = tree, main, tags, mode, n_games
+        self.out, self.toc, self.diagrams = [], [("top", "Introduction" if n_games == 1 else "Overview")], []
         self.speakers = {}
         self.has_speakers = bool(SPEAKER_SPLIT.search(" ".join(v for k, v in _walk(main) if k == "c")))
 
@@ -213,7 +277,7 @@ class Writer:
                 run.append(val)
             elif kind == "c":
                 flush()
-                out.append(f'<span class="vc">{esc(val)}</span>')
+                out.append(f'<span class="vc">{esc(val.replace(chr(10), " "))}</span>')
             elif kind == "v":
                 flush()
                 out.append(f"({self.variation(val)})")
@@ -227,26 +291,41 @@ class Writer:
             text, heading = text.split("##", 1)
             text, heading = text.strip(), heading.strip()
         html_parts = []
-        for part in [p.strip() for p in SPEAKER_SPLIT.split(text) if p.strip()]:
-            m = SPEAKER_START.match(part)
-            if m:
-                name = m.group(1)
-                cls = self.speakers.setdefault(name, f"sp{len(self.speakers) % 4}")
-                html_parts.append(f'<p class="say {cls}"><span class="spk">{esc(name)}</span> {esc(m.group(2))}</p>')
-            else:
-                html_parts.append(f'<p class="{"narr" if self.has_speakers else "note"}">{esc(part)}</p>')
+        br = lambda x: esc(x).replace("\n", "<br/>")
+        for para in text.split("\n\n"):
+            for part in [p.strip() for p in SPEAKER_SPLIT.split(para) if p.strip()]:
+                m = SPEAKER_START.match(part)
+                if m:
+                    name = m.group(1)
+                    cls = self.speakers.setdefault(name, f"sp{len(self.speakers) % 4}")
+                    html_parts.append(f'<p class="say {cls}"><span class="spk">{esc(name)}</span> {br(m.group(2))}</p>')
+                else:
+                    html_parts.append(f'<p class="{"narr" if self.has_speakers else "note"}">{br(part)}</p>')
         return html_parts, heading
 
     # whole body ------------------------------------------------------------
+    def header_kicker(self):
+        T = self.tags
+        if self.n_games > 1:
+            kind = "Lichess study" if nice(T.get("StudyName")) else "Collection"
+            what = "chapters" if nice(T.get("StudyName")) else "games"
+            return f"{kind} · {self.n_games} {what}"
+        return " · ".join(x for x in (nice(T.get("Event")), nice(T.get("Site"))) if x)
+
     def header(self):
         T = self.tags
-        kicker = " · ".join(x for x in (nice(T.get("Event")), nice(T.get("Site"))) if x)
-        opening = nice(T.get("Opening")) + (f" ({T['ECO']})" if nice(T.get("ECO")) and nice(T.get("Opening")) else "")
-        rows = [f"<div><b>White:</b> {esc(person(T.get('White')))}</div>",
-                f"<div><b>Black:</b> {esc(person(T.get('Black')))}</div>"]
+        if self.n_games > 1:
+            kicker = self.header_kicker()
+            opening = ""
+        else:
+            kicker = " · ".join(x for x in (nice(T.get("Event")), nice(T.get("Site"))) if x)
+            opening = nice(T.get("Opening")) + (f" ({T['ECO']})" if nice(T.get("ECO")) and nice(T.get("Opening")) else "")
+        rows = []
+        if self.n_games == 1:
+            rows += [f"<div><b>{side}:</b> {esc(person(T.get(side)))}</div>" for side in ("White", "Black") if nice(T.get(side))]
         if nice(T.get("Date")):
             rows.append(f"<div><b>Date:</b> {esc(T['Date'].replace('.??', ''))}</div>")
-        if nice(T.get("Result")) and T.get("Result") != "*":
+        if self.n_games == 1 and nice(T.get("Result")) and T.get("Result") != "*":
             rows.append(f"<div><b>Result:</b> {esc(T['Result'])}</div>")
         h = '<header class="art-head" id="top">'
         if kicker:
@@ -254,9 +333,13 @@ class Writer:
         h += f"<h1>{esc(title_of(T))}</h1>"
         if opening:
             h += f'<p class="dek">{esc(opening)}</p>'
-        h += f'<div class="gamehead">{"".join(rows)}</div>'
+        if rows:
+            h += f'<div class="gamehead">{"".join(rows)}</div>'
         if nice(T.get("Annotator")):
-            h += f'<p class="byline">Notes: <span>{esc(T["Annotator"])}</span></p>'
+            ann = T["Annotator"]
+            if ann.startswith("http"):                        # Lichess gives a profile link
+                ann = ann.rstrip("/").rsplit("/", 1)[-1]
+            h += f'<p class="byline">Notes: <span>{esc(ann)}</span></p>'
         return h + "</header>"
 
     def build(self):
@@ -283,6 +366,35 @@ class Writer:
             run.clear()
 
         for kind, val in self.main:
+            if kind == "h":                                   # a new game / study chapter
+                flush_run()
+                flush_lines()
+                name, root, gt = val
+                shown = no_emoji(name) if self.mode == "epub" else name
+                sid = f"s{sec}"
+                sec += 1
+                out.append(f'</section><section id="{sid}"><h2>{esc(shown)}</h2>')
+                players = [person(gt.get(x)) for x in ("White", "Black") if nice(gt.get(x))]
+                extra = " – ".join(players)
+                if nice(gt.get("Result")) and gt.get("Result") != "*" and players:
+                    extra += f" · {gt['Result']}"
+                if extra:
+                    out.append(f'<p class="gamehead">{esc(extra)}</p>')
+                self.toc.append((sid, shown))
+                continue
+            if kind == "start":                               # chapter starts from a set-up position
+                flush_run()
+                flush_lines()
+                fen = self.t.nodes[val]["fen"]
+                side = "White" if fen.split()[1] == "w" else "Black"
+                if self.mode == "epub":
+                    self.diagrams.append(val)
+                    out.append(f'<div class="dia"><img src="images/{val}.png" alt="Starting position"/>'
+                               f'<p class="cap">Start: {side} to move</p></div>')
+                else:
+                    out.append(f'<figure class="dia" data-id="{val}"><div class="sb" data-fen="{esc(fen)}"></div>'
+                               f'<figcaption>Start: {side} to move</figcaption></figure>')
+                continue
             if kind == "m":
                 flush_lines()
                 run.append(val)
@@ -302,6 +414,8 @@ class Writer:
             elif kind == "r":
                 flush_run()
                 flush_lines()
+                if val == "*":
+                    continue
                 out.append(f'<p class="result">{esc(val)}</p>')
         flush_run()
         flush_lines()
@@ -318,12 +432,36 @@ def _walk(els):
 
 
 def title_of(T):
-    return nice(T.get("Title")) or f"{surname(T.get('White'))} – {surname(T.get('Black'))}"
+    if nice(T.get("Title")):
+        return T["Title"]
+    if nice(T.get("StudyName")):
+        return T["StudyName"]
+    if nice(T.get("White")) and nice(T.get("Black")):
+        return f"{surname(T['White'])} – {surname(T['Black'])}"
+    return nice(T.get("Event")) or "Chess game"
+
+
+EMOJI = re.compile("[\U0001F000-\U0001FAFF\u2600-\u27BF\u2B00-\u2BFF\uFE0F\u200D]")
+
+
+def no_emoji(s):
+    """Kobo fonts have no emoji: drop them from EPUB headings."""
+    return re.sub(r"\s{2,}", " ", EMOJI.sub("", s)).strip()
 
 
 # --------------------------------------------------------------------------- web page
-def make_html(tree, main, tags, slug):
-    w = Writer(tree, main, tags, "html")
+def roots_of(tree, main, title):
+    """Board heading for every starting position (one per game / chapter)."""
+    roots = {tree.root: [title, "Start position"]}
+    for kind, val in main:
+        if kind == "h":
+            name, root, _ = val
+            roots[root] = [name, "Start position"]
+    return roots
+
+
+def make_html(tree, main, tags, slug, n_games=1):
+    w = Writer(tree, main, tags, "html", n_games)
     body = w.build()
     table = {nid: [n["fen"], n["parent"], n["children"], n["san"] + n["ann"] if n["san"] else "",
                    n["label"] + n["ann"] if n["label"] else "", n["from"], n["to"], 1 if n["white"] else 0]
@@ -331,7 +469,7 @@ def make_html(tree, main, tags, slug):
     title = title_of(tags)
     full_title = title + (f" · {nice(tags.get('Event'))}" if nice(tags.get("Event")) else "")
     data = (f"const NODES={json.dumps(table, ensure_ascii=False)};"
-            f"const ROOTS={json.dumps({tree.root: [title, 'Start position']}, ensure_ascii=False)};"
+            f"const ROOTS={json.dumps(roots_of(tree, main, title), ensure_ascii=False)};"
             f"const FIRST={json.dumps(tree.root)};const SLUG={json.dumps(slug)};")
     toc = "\n".join(f'    <a data-t="{sid}">{esc(t)}</a>' for sid, t in w.toc)
     page = (ASSETS / "template.html").read_text(encoding="utf-8")
@@ -416,22 +554,26 @@ def wrap(d, text, fnt, width):
     return lines + ([cur] if cur else [])
 
 
-def cover_image(tags, final_fen, final_text):
+def cover_image(tags, final_fen, caption, kicker=None):
     W, H = 800, 1200
     img = Image.new("RGB", (W, H), (31, 58, 95))
     d = ImageDraw.Draw(img)
     y = 80
-    kicker = " · ".join(x for x in (nice(tags.get("Event")), nice(tags.get("Site"))) if x).upper()
+    if kicker is None:
+        kicker = " · ".join(x for x in (nice(tags.get("Event")), nice(tags.get("Site"))) if x)
+    kicker = no_emoji(kicker).upper()
     if kicker:
         for ln in wrap(d, kicker, font(24, True), W - 120):
             d.text((W / 2, y), ln, fill=(201, 216, 240), font=font(24, True), anchor="mm")
             y += 34
     y += 40
     big = font(70, True)
-    for ln in wrap(d, title_of(tags), big, W - 100):
+    for ln in wrap(d, no_emoji(title_of(tags)), big, W - 100):
         d.text((W / 2, y), ln, fill="white", font=big, anchor="mm")
         y += 84
     sub = " · ".join(x for x in (nice(tags.get("Opening")), nice(tags.get("Result")) if tags.get("Result") != "*" else "") if x)
+    if kicker and kicker.startswith(("LICHESS STUDY", "COLLECTION")):
+        sub = ""
     if sub:
         y += 10
         for ln in wrap(d, sub, font(30), W - 120):
@@ -439,7 +581,7 @@ def cover_image(tags, final_fen, final_text):
             y += 40
     bimg = board_image(final_fen, sq=62)
     img.paste(bimg, ((W - bimg.width) // 2, max(y + 30, 430)))
-    d.text((W / 2, H - 70), f"Final position after {final_text}", fill=(201, 216, 240), font=font(26), anchor="mm")
+    d.text((W / 2, H - 70), caption, fill=(201, 216, 240), font=font(26), anchor="mm")
     return img
 
 
@@ -480,13 +622,13 @@ def xhtml(title, inner):
 </body></html>'''
 
 
-def make_epub(tree, main, tags, slug, out_path):
-    w = Writer(tree, main, tags, "epub")
+def make_epub(tree, main, tags, slug, out_path, n_games=1):
+    w = Writer(tree, main, tags, "epub", n_games)
     body = w.build().replace("<br>", "<br/>")
     head, rest = body.split('<section id="intro">', 1)
     sections = re.findall(r'<section id="(\w+)">(.*?)</section>', '<section id="intro">' + rest, re.S)
     names = dict(w.toc)
-    names["intro"] = "Introduction"
+    names["intro"] = names["top"]
     chapters = []
     for i, (sid, inner) in enumerate(sections):
         if sid == "intro":
@@ -494,16 +636,31 @@ def make_epub(tree, main, tags, slug, out_path):
         if inner.strip():
             chapters.append((f"{i + 1:02d}_{sid}.xhtml", names.get(sid, sid), inner))
 
-    final = [v for k, v in main if k == "m"]
-    final = final[-1] if final else tree.root
     images = {f"{nid}.png": png(board_image(tree.nodes[nid]["fen"], tree.nodes[nid]["from"], tree.nodes[nid]["to"]))
               for nid in w.diagrams}
-    images["cover.png"] = png(cover_image(tags, tree.nodes[final]["fen"], tree.text(final) or "the start"), 128)
+    if n_games == 1:
+        final = [v for k, v in main if k == "m"]
+        final = final[-1] if final else tree.root
+        caption = f"Final position after {tree.text(final)}" if final != tree.root else "Start position"
+        cover = cover_image(tags, tree.nodes[final]["fen"], caption)
+    else:                                   # a study: show where the first chapter with moves ends
+        final, seen = None, False
+        for k, v in main:
+            if k == "h" and final:
+                break
+            if k == "m":
+                final = v
+        final = final or tree.root
+        caption = f"After {tree.text(final)}" if final != tree.root else ""
+        cover = cover_image(tags, tree.nodes[final]["fen"], caption, Writer(tree, main, tags, "epub", n_games).header_kicker())
+    images["cover.png"] = png(cover, 128)
 
     book_title = title_of(tags)
     uid = "urn:uuid:" + str(uuid.uuid5(uuid.NAMESPACE_URL, "pgn-kit-" + slug))
     now = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-    creator = " and ".join(x for x in (person(tags.get("White")), person(tags.get("Black"))) if x)
+    creator = " and ".join(x for x in (person(tags.get("White")), person(tags.get("Black"))) if x) if n_games == 1 else ""
+    if not creator and nice(tags.get("Annotator")):
+        creator = tags["Annotator"].rstrip("/").rsplit("/", 1)[-1]
     manifest = "\n".join(
         f'<item id="img_{Path(x).stem}" href="images/{x}" media-type="image/png"'
         f'{" properties=\"cover-image\"" if x == "cover.png" else ""}/>' for x in sorted(images))
@@ -540,7 +697,7 @@ def make_epub(tree, main, tags, slug, out_path):
         put("OEBPS/cover.xhtml", xhtml("Cover", '<div style="text-align:center"><img src="images/cover.png" alt="Cover" style="max-width:100%;height:auto"/></div>'))
         put("OEBPS/nav.xhtml", xhtml("Contents", f'<nav epub:type="toc" id="toc"><h2>Contents</h2><ol>\n{nav}\n</ol></nav>'))
         put("OEBPS/toc.ncx", f'<?xml version="1.0" encoding="utf-8"?>\n<ncx xmlns="http://www.daisy.org/z3986/2005/ncx/" version="2005-1">'
-            f'<head><meta name="dtb:uid" content="{uid}"/></head><docTitle><text>{esc(book_title)}</text></docTitle><navMap>{ncx_points}</navMap></ncx>')
+            f'<head><meta name="dtb:uid" content="{uid}"/></head><docTitle><text>{esc(no_emoji(book_title))}</text></docTitle><navMap>{ncx_points}</navMap></ncx>')
         for f, t, inner in chapters:
             put(f"OEBPS/{f}", xhtml(t, inner))
         for name, data in images.items():
@@ -571,21 +728,29 @@ def main():
         text = src.read_text(encoding="utf-8-sig")
     except UnicodeDecodeError:                       # saved by Notepad as "ANSI"
         text = src.read_text(encoding="cp1252")
-    tags, toks = read_pgn(text)
-    tree, mainline, errors = build_tree(tags, toks)
+    games = read_games(text)
+    if not games:
+        sys.exit("No game found in that file.")
+    tree, mainline, errors = build(games)
+    tags = dict(games[0][0])
+    if len(games) > 1:                      # a study / collection: name it after the study, not chapter 1
+        for k in ("Event", "Site", "Opening", "ECO", "Result", "White", "Black", "Date"):
+            tags.pop(k, None)
+        tags["Date"] = games[0][0].get("Date", "")
     if errors:
         print("Stopped - fix this move in the PGN first:")
         print("  -", errors[0])
         if len(errors) > 1:
             print(f"  ({len(errors) - 1} more problem(s) after it, often caused by the first one)")
         sys.exit(1)
-    slug = re.sub(r"[^a-z0-9]+", "-", src.stem.lower()).strip("-") or "game"
+    slug = re.sub(r"[^a-z0-9_]+", "-", src.stem.lower()).strip("-") or "game"
     out = KIT / "out"
     out.mkdir(exist_ok=True)
-    (out / f"{slug}.html").write_text(make_html(tree, mainline, tags, slug), encoding="utf-8")
-    n = make_epub(tree, mainline, tags, slug, out / f"{slug}.epub")
-    moves = len(tree.nodes) - 1
-    print(f"OK - {moves} moves checked (main line and side lines), {n} diagrams.")
+    (out / f"{slug}.html").write_text(make_html(tree, mainline, tags, slug, len(games)), encoding="utf-8")
+    n = make_epub(tree, mainline, tags, slug, out / f"{slug}.epub", len(games))
+    moves = sum(1 for x in tree.nodes.values() if x["parent"])
+    what = f"{len(games)} games/chapters, " if len(games) > 1 else ""
+    print(f"OK - {what}{moves} moves checked (main line and side lines), {n} diagrams.")
     print(f"  web page: {out / (slug + '.html')}")
     print(f"  EPUB:     {out / (slug + '.epub')}")
 

@@ -40,6 +40,10 @@ were added to O'Kelly – Miles without saying so, and the user noticed.
   repeats the main move is merged into it (board then offers "Choose a line").
 - `$1..$6` → ! ? !! ?? !? ?!. Lichess `[%cal]`, `[%csl]`, `[%clk]` codes are stripped.
 - Every move incl. variations is replayed; any illegal move stops the build.
+- Several games in one file (Lichess study export = one game per chapter):
+  one page/EPUB, each game a section (ChapterName or White – Black), a
+  clickable start diagram for FEN chapters, title from StudyName/Title,
+  "Overview" for the header section, emojis stripped in the EPUB only.
 
 ## Web page design (assets/template.html — keep it)
 - Sticky top bar: title, A− / A+, Dark (saved in localStorage, try/catch),
