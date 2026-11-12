@@ -1948,7 +1948,7 @@ if (typeof define !== 'undefined')
 /*NODES*/
 (function(){
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
-const store={get(k){try{return localStorage.getItem('mg_'+k)}catch(e){return null}},set(k,v){try{localStorage.setItem('gw_'+k,v)}catch(e){}}};
+const store={get(k){try{return localStorage.getItem('mg_'+k)}catch(e){return null}},set(k,v){try{localStorage.setItem('mg_'+k,v)}catch(e){}}};
 // node fields
 const F=0,PAR=1,CH=2,SAN=3,LAB=4,FROM=5,TO=6,W=7;
 let cur=FIRST, flipped=store.get('flip')==='1', sel=null, uSeq=0;
