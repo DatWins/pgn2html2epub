@@ -26,7 +26,19 @@ This is the same layout as the O'Kelly – Miles game on my site
 
 That's all. No Node, no browser tools needed.
 
-## Making a game
+## The easy way: double-click `make_game.bat`
+
+1. Save your PGN in the `games` folder.
+2. Double-click **make_game.bat** in the kit folder.
+3. Type the number of your PGN from the list (if there's only one, it's
+   picked for you), then press **Y** or **N** for Stockfish diagrams.
+4. When it's done, the web page opens in your browser. The `.html` and
+   `.epub` are in the `out` folder.
+
+You can also drag a `.pgn` file from anywhere onto `make_game.bat`.
+The first time, it installs `chess` and `pillow` for you if they're missing.
+
+## Making a game (by typing the command)
 
 1. Write your PGN and save it in the `games` folder, for example
    `games\my-game.pgn` (`my-game` is just an example: use your own file's name

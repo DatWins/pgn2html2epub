@@ -899,7 +899,7 @@ def make_epub(tree, main, tags, slug, out_path, n_games=1):
 
 # --------------------------------------------------------------------------- main
 def main():
-    args, use_sf, sf_path, depth = [], False, None, 18
+    args, use_sf, sf_path, depth, open_page = [], False, None, 18, False
     argv = sys.argv[1:]
     i = 0
     while i < len(argv):
@@ -909,6 +909,8 @@ def main():
             if i + 1 < len(argv) and not argv[i + 1].startswith("--") and not argv[i + 1].lower().endswith(".pgn"):
                 sf_path = argv[i + 1]
                 i += 1
+        elif a == "--open":
+            open_page = True
         elif a == "--depth" and i + 1 < len(argv):
             depth = int(argv[i + 1])
             i += 1
@@ -971,6 +973,9 @@ def main():
     print(f"OK - {what}{moves} moves checked (main line and side lines), {n} diagrams.")
     print(f"  web page: {out / (slug + '.html')}")
     print(f"  EPUB:     {out / (slug + '.epub')}")
+    if open_page:                                    # used by make_game.bat
+        import webbrowser
+        webbrowser.open((out / f"{slug}.html").resolve().as_uri())
 
 
 if __name__ == "__main__":
