@@ -204,7 +204,7 @@ def build(games):
         errors += [f"{e}  [in '{name}']" if multi else e for e in errs]
         if multi:
             stream.append(("h", (name, root, tags)))
-            if tree.nodes[root]["fen"] != chess.STARTING_FEN and any(e[0] == "m" for e in els):
+            if tree.nodes[root]["fen"] != chess.STARTING_FEN:
                 stream.append(("start", root))
         stream += els
     return tree, stream, errors
@@ -404,7 +404,7 @@ class Writer:
                     cls = self.speakers.setdefault(name, f"sp{len(self.speakers) % 4}")
                     html_parts.append(f'<p class="say {cls}"><span class="spk">{esc(name)}</span> {br(m.group(2))}</p>')
                 else:
-                    html_parts.append(f'<p class="{"narr" if self.has_speakers else "note"}">{br(part)}</p>')
+                    html_parts.append(f'<p class="{"narr" if self.has_speakers else "cm"}">{br(part)}</p>')
         return html_parts, heading
 
     # whole body ------------------------------------------------------------
