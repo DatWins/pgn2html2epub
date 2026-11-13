@@ -38,7 +38,13 @@ were added to O'Kelly – Miles without saying so, and the user noticed.
 - `{ ## Heading }` → new section + Contents entry + EPUB chapter.
 - `( ... )` side lines right after the move they replace; a side line that
   repeats the main move is merged into it (board then offers "Choose a line").
-- `$1..$6` → ! ? !! ?? !? ?!. Lichess `[%cal]`, `[%csl]`, `[%clk]` codes are stripped.
+- `$1..$6` → ! ? !! ?? !? ?!. `[%clk]` etc. are stripped from the text.
+- Lichess `[%cal Gb2h8]` arrows / `[%csl Rg7]` circles are attached to the
+  position they follow (the root for a chapter's opening comment): NODES row
+  field 8 = 'arrows|circles' code, drawn as an SVG overlay on the live board and
+  on `.sb` start boards (data-sh), and with Pillow on EPUB diagrams (a move
+  with shapes ends its move group so it gets its own diagram). The user wants
+  these kept — never drop them.
 - Every move incl. variations is replayed; any illegal move stops the build.
 - Several games in one file (Lichess study export = one game per chapter):
   one page/EPUB, each game a section (ChapterName or White – Black), a

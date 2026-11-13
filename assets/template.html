@@ -132,6 +132,7 @@ figure.dia:hover .bd{outline:3px solid var(--main)}
   main{padding:14px 16px 60px}
 }
 main p b a.mv,main p b{color:var(--main);font-weight:700}figure.pic{margin:1.4em 0}figure.dia img.orig{width:290px;max-width:100%;display:block}figure.pic img{max-width:100%;border-radius:6px;display:block}
+.bd{position:relative}.bd svg.shapes{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:2}
 </style>
 <style>
 .say{margin:.55em 0}
@@ -1967,17 +1968,29 @@ function boardHTML(fen,opt={}){
   }
   const rk=[...Array(8)].map((_,i)=>`<span>${fl?i+1:8-i}</span>`).join('');
   const fs=[...Array(8)].map((_,i)=>`<span>${files[fl?7-i:i]}</span>`).join('');
-  return `<div class="bwrap"><div class="rk">${rk}</div><div class="bd">${sq}</div><div class="fl">${fs}</div></div>`;
+  return `<div class="bwrap"><div class="rk">${rk}</div><div class="bd">${sq}${shapesSVG(opt.sh,fl)}</div><div class="fl">${fs}</div></div>`;
+}
+// Lichess arrows and circles: 'Gb2b4,Gc4d5|Gb4'
+const SHC={G:'#15781B',R:'#882020',B:'#003088',Y:'#e68f00'};
+function shapesSVG(code,fl){
+  if(!code)return '';
+  const [ar,ci]=code.split('|').map(x=>x?x.split(','):[]);
+  const xy=s=>{const f=files.indexOf(s[0]),r=+s[1];return fl?[7-f+.5,r-.5]:[f+.5,8-r+.5]};
+  let o='';
+  for(const c of ci){const [x,y]=xy(c.slice(1));o+=`<circle cx="${x}" cy="${y}" r=".45" fill="none" stroke="${SHC[c[0]]}" stroke-width=".07" opacity=".85"/>`}
+  for(const a of ar){const [x1,y1]=xy(a.slice(1,3)),[x2,y2]=xy(a.slice(3,5)),L=Math.hypot(x2-x1,y2-y1)||1,ux=(x2-x1)/L,uy=(y2-y1)/L,h=.42,bx=x2-ux*h,by=y2-uy*h,px=-uy*.24,py=ux*.24;
+    o+=`<g fill="${SHC[a[0]]}" stroke="${SHC[a[0]]}" opacity=".8"><line x1="${x1}" y1="${y1}" x2="${bx}" y2="${by}" stroke-width=".16" stroke-linecap="round"/><polygon points="${x2},${y2} ${bx+px},${by+py} ${bx-px},${by-py}" stroke="none"/></g>`}
+  return `<svg class="shapes" viewBox="0 0 8 8" aria-hidden="true">${o}</svg>`;
 }
 // static diagrams
-$$('.sb').forEach(el=>el.innerHTML=boardHTML(el.dataset.fen));
+$$('.sb').forEach(el=>el.innerHTML=boardHTML(el.dataset.fen,{sh:el.dataset.sh}));
 $$('figure.dia').forEach(f=>f.addEventListener('click',()=>go(f.dataset.id,true)));
 
 function render(){
   const n=NODES[cur], game=new Chess(n[F]);
   let tg=[];
   if(sel) tg=game.moves({square:sel,verbose:true}).map(m=>m.to);
-  $('#live').innerHTML=boardHTML(n[F],{flip:flipped,lm:n[FROM]?[n[FROM],n[TO]]:[],sel,tg});
+  $('#live').innerHTML=boardHTML(n[F],{flip:flipped,lm:n[FROM]?[n[FROM],n[TO]]:[],sel,tg,sh:sel?'':n[8]});
   const r=rootOf(cur);
   $('#who').textContent=(ROOTS[r]||[''])[0];
   $('#cur').textContent=n[LAB]||(ROOTS[r]||['',''])[1]||'Start position';

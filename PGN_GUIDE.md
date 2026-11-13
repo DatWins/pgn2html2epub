@@ -58,6 +58,24 @@ move it follows.
 Lichess codes inside comments, like `[%cal Ge5d4]` or `[%clk 0:05:00]`, are
 removed automatically.
 
+### Arrows and circles
+
+Arrows and circles you draw in a Lichess study are saved in the PGN as codes
+inside a comment, for example:
+
+```
+2. Bb2 { [%csl Gb2,Rg7][%cal Bb2h8] }
+```
+
+`%cal` = arrows (`Bb2h8` = blue arrow from b2 to h8), `%csl` = circled
+squares (`Rg7` = red circle on g7). The letter in front is the colour:
+**G** green, **R** red, **B** blue, **Y** yellow. You can also type them
+yourself in Notepad.
+
+They're drawn in Lichess colours on the live board when you reach that move,
+on the start boards of chapters, and in the EPUB diagram for that move.
+The codes themselves never show as text.
+
 ## 4. Speaker labels (who is talking)
 
 Start the comment with a name in **CAPITALS followed by a colon**:
@@ -130,8 +148,6 @@ Study PGN* is exactly that: one game per chapter. The kit then makes
   `2... Nc6`) get a starting diagram; click it to load it on the live board.
 * The big title is the `StudyName` tag (or add your own `[Title "..."]` to
   the first game).
-* Lichess arrows and circles (`[%cal ...]`, `[%csl ...]`) aren't drawn; they're
-  removed from the text.
 * Emojis in chapter names show on the web page but are left out of the
   EPUB, because Kobo can't display them.
 

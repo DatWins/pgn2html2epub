@@ -84,7 +84,12 @@ def tokenize(movetext):
             i += 1
         elif c == "{":
             j = movetext.index("}", i)
-            body = re.sub(r"\[%[^\]]*\]", "", movetext[i + 1:j])   # drop Lichess [%clk ..] [%cal ..] codes
+            raw = movetext[i + 1:j]
+            arrows = [a for grp in re.findall(r"\[%cal\s+([^\]]*)\]", raw) for a in re.findall(r"[GRBY][a-h][1-8][a-h][1-8]", grp)]
+            circles = [c for grp in re.findall(r"\[%csl\s+([^\]]*)\]", raw) for c in re.findall(r"[GRBY][a-h][1-8]", grp)]
+            if arrows or circles:                          # Lichess arrows / circles
+                toks.append(("sh", (arrows, circles)))
+            body = re.sub(r"\[%[^\]]*\]", "", raw)         # the codes themselves aren't text
             body = re.sub(r"[ \t\r]+", " ", body)
             body = re.sub(r" ?\n ?", "\n", body).strip()            # keep line breaks the author typed
             body = re.sub(r"\n{3,}", "\n\n", body)
@@ -135,7 +140,7 @@ class Tree:
     def _add(self, fen, parent, move_info, ann):
         nid = f"n{len(self.nodes)}"
         n = {"fen": fen, "parent": parent, "children": [], "san": "", "ann": ann,
-             "label": "", "from": "", "to": "", "white": False}
+             "label": "", "from": "", "to": "", "white": False, "arrows": [], "circles": []}
         if move_info:
             san, frm, to, white, number = move_info
             n.update(san=san, white=white, label=f"{number}{'.' if white else '...'}{san}",
@@ -193,6 +198,15 @@ def chapter_name(tags, k):
     return ev or f"Game {k}"
 
 
+def has_shapes(n):
+    return bool(n["arrows"] or n["circles"])
+
+
+def shapes_code(n):
+    """'Gb2b4,Gc4d5|Gb4' = arrows | circles, as used by the web page."""
+    return ",".join(n["arrows"]) + "|" + ",".join(n["circles"]) if has_shapes(n) else ""
+
+
 def build(games):
     """One move tree for all games. Returns the tree, one list of page elements, and errors."""
     tree, errors, stream = Tree(), [], []
@@ -204,7 +218,7 @@ def build(games):
         errors += [f"{e}  [in '{name}']" if multi else e for e in errs]
         if multi:
             stream.append(("h", (name, root, tags)))
-            if tree.nodes[root]["fen"] != chess.STARTING_FEN:
+            if tree.nodes[root]["fen"] != chess.STARTING_FEN or has_shapes(tree.nodes[root]):
                 stream.append(("start", root))
         stream += els
     return tree, stream, errors
@@ -225,6 +239,11 @@ def build_line(tree, root, toks):
                 els.append(("c", val))
             elif kind == "r":
                 els.append(("r", val))
+            elif kind == "sh":                             # arrows/circles belong to the current position
+                n = tree.nodes[cur]
+                n["arrows"] += [a for a in val[0] if a not in n["arrows"]]
+                n["circles"] += [c for c in val[1] if c not in n["circles"]]
+                els.append(("sh", cur))
             elif kind == "nag":
                 if els and els[-1][0] == "m" and val:
                     n = tree.nodes[els[-1][1]]
@@ -385,6 +404,8 @@ class Writer:
             elif kind == "v":
                 flush()
                 out.append(f"({self.variation(val)})")
+            elif kind == "sh":
+                continue
         flush()
         return " ".join(out)
 
@@ -486,6 +507,10 @@ class Writer:
                     out.append(f'<p class="gamehead">{esc(extra)}</p>')
                 self.toc.append((sid, shown))
                 continue
+            if kind == "sh":
+                if self.mode == "epub" and run and run[-1] == val:
+                    flush_run()
+                continue
             if kind == "start":                               # chapter starts from a set-up position
                 flush_run()
                 flush_lines()
@@ -496,7 +521,7 @@ class Writer:
                     out.append(f'<div class="dia"><img src="images/{val}.png" alt="Starting position"/>'
                                f'<p class="cap">Start: {side} to move</p></div>')
                 else:
-                    out.append(f'<figure class="dia" data-id="{val}"><div class="sb" data-fen="{esc(fen)}"></div>'
+                    out.append(f'<figure class="dia" data-id="{val}"><div class="sb" data-fen="{esc(fen)}" data-sh="{shapes_code(self.t.nodes[val])}"></div>'
                                f'<figcaption>Start: {side} to move</figcaption></figure>')
                 continue
             if kind == "m":
@@ -583,6 +608,7 @@ def make_html(tree, main, tags, slug, n_games=1):
     body = w.build()
     table = {nid: [n["fen"], n["parent"], n["children"], n["san"] + n["ann"] if n["san"] else "",
                    n["label"] + n["ann"] if n["label"] else "", n["from"], n["to"], 1 if n["white"] else 0]
+                   + ([shapes_code(n)] if has_shapes(n) else [])
              for nid, n in tree.nodes.items()}
     title = title_of(tags)
     full_title = title + (f" · {nice(tags.get('Event'))}" if nice(tags.get("Event")) else "")
@@ -633,7 +659,36 @@ def piece(code, size):
     return _pieces[key]
 
 
-def board_image(fen, frm="", to="", sq=56, coords=True):
+SHAPE_RGB = {"G": (21, 120, 27), "R": (136, 32, 32), "B": (0, 48, 136), "Y": (230, 143, 0)}
+
+
+def draw_shapes(img, n, x0, y0, sq):
+    """Lichess-style arrows and circles on a board picture (white at the bottom)."""
+    if not n or not has_shapes(n):
+        return img
+    layer = Image.new("RGBA", img.size, (0, 0, 0, 0))
+    d = ImageDraw.Draw(layer)
+    centre = lambda s: (x0 + ("abcdefgh".index(s[0]) + 0.5) * sq, y0 + (8 - int(s[1]) + 0.5) * sq)
+    for c in n["circles"]:
+        (x, y), col = centre(c[1:3]), SHAPE_RGB[c[0]] + (200,)
+        r = sq * 0.46
+        d.ellipse([x - r, y - r, x + r, y + r], outline=col, width=max(3, int(sq * 0.07)))
+    for a in n["arrows"]:
+        col = SHAPE_RGB[a[0]] + (200,)
+        (x1, y1), (x2, y2) = centre(a[1:3]), centre(a[3:5])
+        L = ((x2 - x1) ** 2 + (y2 - y1) ** 2) ** 0.5 or 1
+        ux, uy = (x2 - x1) / L, (y2 - y1) / L
+        head, w = sq * 0.42, sq * 0.16
+        bx, by = x2 - ux * head, y2 - uy * head
+        d.line([(x1, y1), (bx, by)], fill=col, width=int(w))
+        px, py = -uy, ux
+        d.polygon([(x2, y2), (bx + px * head * 0.55, by + py * head * 0.55), (bx - px * head * 0.55, by - py * head * 0.55)], fill=col)
+    base = img.convert("RGBA")
+    base.alpha_composite(layer)
+    return base.convert("RGB")
+
+
+def board_image(fen, frm="", to="", sq=56, coords=True, shapes=None):
     margin = int(sq * 0.45) if coords else 0
     b = 3
     W = margin + 8 * sq + 2 * b + 6
@@ -657,6 +712,8 @@ def board_image(fen, frm="", to="", sq=56, coords=True):
             if p:
                 code = ("w" if p.color else "b") + p.symbol().upper()
                 img.paste(piece(code, sq), (X, Y), piece(code, sq))
+    img = draw_shapes(img, shapes, x0 + b, y0 + b, sq)
+    d = ImageDraw.Draw(img)
     if coords:
         for r in range(8):
             d.text((margin / 2, y0 + b + r * sq + sq / 2), str(8 - r), fill=(51, 51, 51), font=f, anchor="mm")
@@ -768,7 +825,8 @@ def make_epub(tree, main, tags, slug, out_path, n_games=1):
         if inner.strip():
             chapters.append((f"{i + 1:02d}_{sid}.xhtml", names.get(sid, sid), inner))
 
-    images = {f"{nid}.png": png(board_image(tree.nodes[nid]["fen"], tree.nodes[nid]["from"], tree.nodes[nid]["to"]))
+    images = {f"{nid}.png": png(board_image(tree.nodes[nid]["fen"], tree.nodes[nid]["from"], tree.nodes[nid]["to"],
+                                            shapes=tree.nodes[nid]), 96)
               for nid in w.diagrams}
     if n_games == 1:
         final = [v for k, v in main if k == "m"]
